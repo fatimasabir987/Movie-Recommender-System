@@ -10,22 +10,7 @@ try:
 except ImportError:
     _Groq = None
 
-# Auto-download similarity.pkl from Google Drive if not present
-def _download_similarity():
-    if not os.path.exists("similarity.pkl"):
-        try:
-            import gdown
-            with st.spinner("Setting up SceneSeeker... first load takes ~30 seconds"):
-                gdown.download(
-                    "https://drive.google.com/uc?id=1UBueaytEtkE4sRPdOt00neSctWQaAoWa",
-                    "similarity.pkl",
-                    quiet=False
-                )
-        except Exception as e:
-            st.error(f"Could not download model file: {e}")
-            st.stop()
-
-_download_similarity()
+# similarity.pkl is downloaded inside load_model() on first use
 
 # ─────────────────────────────────────────────
 # CONFIG
@@ -252,6 +237,18 @@ def fetch_movie_details(movie_id):
 # ─────────────────────────────────────────────
 @st.cache_resource
 def load_model():
+    # Download similarity.pkl from Google Drive if not present
+    if not os.path.exists("similarity.pkl"):
+        try:
+            import gdown
+            gdown.download(
+                "https://drive.google.com/uc?id=1UBueaytEtkE4sRPdOt00neSctWQaAoWa",
+                "similarity.pkl",
+                quiet=False
+            )
+        except Exception as e:
+            st.error(f"Could not download model: {e}. Please refresh.")
+            st.stop()
     movies     = pickle.load(open("movies.pkl",     "rb"))
     similarity = pickle.load(open("similarity.pkl", "rb"))
     return movies, similarity
@@ -561,7 +558,7 @@ def page_watchlist():
     st.dataframe(df, use_container_width=True, hide_index=True)
 
     # Auto recommendations from top rated
-    st.markdown("---") 
+    st.markdown("---")
     st.subheader("Recommended for you")
     top_rated = [r[0] for r in history if r[1] and r[1] >= 4.0]
     seed      = top_rated[0] if top_rated else history[0][0]
@@ -593,7 +590,7 @@ def main():
             f"<div style='display:flex;align-items:center;gap:8px;font-size:1.25rem;font-weight:700;'>"
             f"{logo(32)}<span>{APP_NAME}</span></div>"
             f"<div style='font-size:0.75rem;opacity:0.5;margin-top:2px;letter-spacing:0.02em;'>Welcome,</div>"
-            f"<div style='font-family:Playfair Display, serif;font-size:1.05rem;font-weight:600;margin-top:1px;'>{username} 👋</div>"
+            f"<div style='font-family:Playfair Display, serif;font-size:1.05rem;font-weight:600;margin-top:1px;'>{username}</div>"
             f"</div>",
             unsafe_allow_html=True
         )
@@ -601,7 +598,7 @@ def main():
 
         page = st.radio(
             "nav",
-            options=["🔍  Discover", "✦  Ask AI", "🎞  My Watchlist"],
+            options=["Discover", "Ask AI", "My Watchlist"],
             label_visibility="collapsed"
         )
 
@@ -617,11 +614,11 @@ def main():
             unsafe_allow_html=True
         )
 
-    if page == "🔍  Discover":
+    if page == "Discover":
         page_discover()
-    elif page == "✦  Ask AI":
+    elif page == "Ask AI":
         page_ask_ai()
-    elif page == "🎞  My Watchlist":
+    elif page == "My Watchlist":
         page_watchlist()
 
 if __name__ == "__main__":
