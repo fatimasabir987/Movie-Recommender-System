@@ -10,8 +10,6 @@ try:
 except ImportError:
     _Groq = None
 
-# similarity.pkl is downloaded inside load_model() on first use
-
 # ─────────────────────────────────────────────
 # CONFIG
 # ─────────────────────────────────────────────
@@ -393,8 +391,6 @@ def page_login():
 # PAGE — DISCOVER
 # ─────────────────────────────────────────────
 def page_discover():
-    app_header("Find your next favourite film")
-
     movies, _ = load_model()
     user_id   = st.session_state.get("user_id")
     watched   = get_watched_titles(user_id) if user_id else []
@@ -479,8 +475,6 @@ def page_discover():
 # PAGE — ASK AI
 # ─────────────────────────────────────────────
 def page_ask_ai():
-    app_header("Ask SceneSeeker AI anything")
-
     user_id = st.session_state.get("user_id")
 
     if "chat_msgs" not in st.session_state or not st.session_state.chat_msgs:
@@ -543,8 +537,6 @@ def page_ask_ai():
 # PAGE — MY WATCHLIST
 # ─────────────────────────────────────────────
 def page_watchlist():
-    app_header("Your cinematic journey")
-
     user_id = st.session_state.get("user_id")
     history = get_watch_history(user_id)
 
@@ -623,3 +615,16 @@ def main():
             st.session_state.clear()
             st.rerun()
 
+    st.markdown("<hr style='margin:0 0 1rem 0;opacity:0.15;'>", unsafe_allow_html=True)
+
+    # Tab navigation works on ALL devices
+    tab1, tab2, tab3 = st.tabs(["Discover", "Ask AI", "My Watchlist"])
+    with tab1:
+        page_discover()
+    with tab2:
+        page_ask_ai()
+    with tab3:
+        page_watchlist()
+
+if __name__ == "__main__":
+    main()
