@@ -489,10 +489,10 @@ def page_ask_ai():
         st.markdown("<div style='opacity:0.6; font-size:0.9rem; margin-bottom:8px;'>Try asking:</div>",
                     unsafe_allow_html=True)
         chips = [
-            "Sad movies that make you cry 😢",
-            "Best 90s action films 💥",
-            "Something like Inception 🌀",
-            "Funny movie for tonight 😂",
+            "Sad movies that make you cry",
+            "Best 90s action films",
+            "Something like Inception",
+            "Funny movie for tonight",
         ]
         cols = st.columns(4)
         for i, chip in enumerate(chips):
