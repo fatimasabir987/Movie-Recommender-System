@@ -15,8 +15,9 @@ except ImportError:
 # ─────────────────────────────────────────────
 # CONFIG
 # ─────────────────────────────────────────────
-GROQ_API_KEY = st.secrets["GROQ_API_KEY"]
-TMDB_API_KEY = st.secrets["TMDB_API_KEY"]
+GROQ_API_KEY = st.secrets.get("GROQ_API_KEY", "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")
+TMDB_API_KEY = st.secrets.get("TMDB_API_KEY", "8703996591426b79a5773084aa548336")
+
 APP_NAME    = "SceneSeeker"
 APP_TAGLINE = "Discover what your mood deserves"
 
@@ -113,6 +114,18 @@ st.markdown("""
         border-radius: 10px;
         padding: 0.8rem 1rem;
         border: 0.5px solid rgba(128,128,128,0.12);
+    }
+    /* Hide sidebar collapse arrow button */
+    button[data-testid="collapsedControl"],
+    div[data-testid="collapsedControl"] {
+        display: none !important;
+    }
+    section[data-testid="stSidebarCollapsedControl"] {
+        display: none !important;
+    }
+    /* Keep sidebar always visible on all screens */
+    section[data-testid="stSidebar"] {
+        min-width: 220px !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -476,10 +489,10 @@ def page_ask_ai():
         st.markdown("<div style='opacity:0.6; font-size:0.9rem; margin-bottom:8px;'>Try asking:</div>",
                     unsafe_allow_html=True)
         chips = [
-            "Sad movies that make you cry",
-            "Best 90s action films",
-            "Something like Inception",
-            "Funny movie for tonight",
+            "Sad movies that make you cry 😢",
+            "Best 90s action films 💥",
+            "Something like Inception 🌀",
+            "Funny movie for tonight 😂",
         ]
         cols = st.columns(4)
         for i, chip in enumerate(chips):
@@ -606,12 +619,7 @@ def main():
             st.session_state.clear()
             st.rerun()
 
-        st.markdown(
-            "<div style='position:absolute;bottom:1rem;font-size:0.72rem;opacity:0.3;'>"
-            "SceneSeeker · FYP 2025"
-            "</div>",
-            unsafe_allow_html=True
-        )
+
 
     if page == "Discover":
         page_discover()
