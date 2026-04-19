@@ -10,11 +10,12 @@ try:
 except ImportError:
     _Groq = None
 
+
 # ─────────────────────────────────────────────
 # CONFIG
 # ─────────────────────────────────────────────
-GROQ_API_KEY = st.secrets.get("GROQ_API_KEY", "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")
-TMDB_API_KEY = st.secrets.get("TMDB_API_KEY", "8703996591426b79a5773084aa548336")
+GROQ_API_KEY = st.secrets.get("GROQ_API_KEY", "")
+TMDB_API_KEY = st.secrets.get("TMDB_API_KEY", "")
 
 APP_NAME    = "SceneSeeker"
 APP_TAGLINE = "Discover what your mood deserves"
