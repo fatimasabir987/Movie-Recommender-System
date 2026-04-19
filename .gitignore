@@ -1,0 +1,7 @@
+similarity.pkl
+sceneseeker.db
+.streamlit/secrets.toml
+.venv/
+__pycache__/
+*.csv
+*.ipynb
