@@ -602,37 +602,24 @@ def main():
 
     username = st.session_state.get("username", "")
 
-    with st.sidebar:
+    # Top header
+    h1, h2, h3 = st.columns([3, 5, 2])
+    with h1:
         st.markdown(
-            f"<div style='padding:0.5rem 0 1rem;'>"
-            f"<div style='display:flex;align-items:center;gap:8px;font-size:1.25rem;font-weight:700;'>"
-            f"{logo(32)}<span>{APP_NAME}</span></div>"
-            f"<div style='font-size:0.75rem;opacity:0.5;margin-top:2px;letter-spacing:0.02em;'>Welcome,</div>"
-            f"<div style='font-family:Playfair Display, serif;font-size:1.05rem;font-weight:600;margin-top:1px;'>{username}</div>"
+            f"<div style='display:flex;align-items:center;gap:8px;padding:0.4rem 0;'>"
+            f"{logo(30)}<span style='font-size:1.1rem;font-weight:700;'>{APP_NAME}</span></div>",
+            unsafe_allow_html=True
+        )
+    with h2:
+        st.markdown(
+            f"<div style='text-align:center;padding:0.5rem 0;'>"
+            f"<span style='font-size:0.75rem;opacity:0.5;'>Welcome, </span>"
+            f"<span style='font-family:Playfair Display,serif;font-size:0.95rem;font-weight:600;'>{username}</span>"
             f"</div>",
             unsafe_allow_html=True
         )
-        st.markdown("---")
-
-        page = st.radio(
-            "nav",
-            options=["Discover", "Ask AI", "My Watchlist"],
-            label_visibility="collapsed"
-        )
-
-        st.markdown("---")
-        if st.button("← Sign Out", use_container_width=True):
+    with h3:
+        if st.button("Sign Out", use_container_width=True):
             st.session_state.clear()
             st.rerun()
 
-
-
-    if page == "Discover":
-        page_discover()
-    elif page == "Ask AI":
-        page_ask_ai()
-    elif page == "My Watchlist":
-        page_watchlist()
-
-if __name__ == "__main__":
-    main()
