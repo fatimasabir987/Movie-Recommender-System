@@ -115,34 +115,23 @@ st.markdown("""
         padding: 0.8rem 1rem;
         border: 0.5px solid rgba(128,128,128,0.12);
     }
-    /* Style the sidebar toggle button nicely */
-    button[data-testid="collapsedControl"] {
-        background: #e63946 !important;
-        border-radius: 50% !important;
-        width: 40px !important;
-        height: 40px !important;
-        border: none !important;
-        box-shadow: 0 2px 8px rgba(230,57,70,0.4) !important;
-        top: 1rem !important;
-    }
-    button[data-testid="collapsedControl"] svg {
-        fill: white !important;
-        color: white !important;
-    }
-    section[data-testid="stSidebarCollapsedControl"] {
-        background: #e63946 !important;
-        border-radius: 0 8px 8px 0 !important;
-        width: 40px !important;
-        top: 1rem !important;
-        box-shadow: 2px 2px 8px rgba(230,57,70,0.4) !important;
-    }
-    section[data-testid="stSidebarCollapsedControl"] button {
-        color: white !important;
-    }
     /* Sidebar width */
     section[data-testid="stSidebar"] {
         min-width: 240px !important;
         max-width: 280px !important;
+    }
+    /* Style the collapsed sidebar toggle — red pill button */
+    section[data-testid="stSidebarCollapsedControl"] {
+        background-color: #e63946 !important;
+        border-radius: 0 12px 12px 0 !important;
+        padding: 8px 4px !important;
+    }
+    section[data-testid="stSidebarCollapsedControl"] button {
+        color: white !important;
+        background: transparent !important;
+    }
+    section[data-testid="stSidebarCollapsedControl"] svg {
+        fill: white !important;
     }
 </style>
 """, unsafe_allow_html=True)
