@@ -115,17 +115,28 @@ st.markdown("""
         padding: 0.8rem 1rem;
         border: 0.5px solid rgba(128,128,128,0.12);
     }
-    /* Hide sidebar collapse arrow button */
+    /* Force sidebar always visible — hide ALL collapse/expand controls */
     button[data-testid="collapsedControl"],
-    div[data-testid="collapsedControl"] {
+    div[data-testid="collapsedControl"],
+    section[data-testid="stSidebarCollapsedControl"],
+    [data-testid="collapsedControl"] {
         display: none !important;
+        visibility: hidden !important;
+        width: 0 !important;
+        height: 0 !important;
     }
-    section[data-testid="stSidebarCollapsedControl"] {
-        display: none !important;
-    }
-    /* Keep sidebar always visible on all screens */
+    /* Sidebar always open on all screen sizes */
     section[data-testid="stSidebar"] {
+        display: flex !important;
+        visibility: visible !important;
         min-width: 220px !important;
+        max-width: 280px !important;
+        transform: none !important;
+        left: 0 !important;
+    }
+    /* Hide the >> expand button too */
+    button[kind="header"] {
+        display: none !important;
     }
 </style>
 """, unsafe_allow_html=True)
@@ -602,7 +613,7 @@ def main():
             f"<div style='display:flex;align-items:center;gap:8px;font-size:1.25rem;font-weight:700;'>"
             f"{logo(32)}<span>{APP_NAME}</span></div>"
             f"<div style='font-size:0.75rem;opacity:0.5;margin-top:2px;letter-spacing:0.02em;'>Welcome,</div>"
-            f"<div style='font-family:Playfair Display, serif;font-size:1.05rem;font-weight:600;margin-top:1px;'>{username}</div>"
+            f"<div style='font-family:Playfair Display, serif;font-size:1.05rem;font-weight:600;margin-top:1px;'>{username} </div>"
             f"</div>",
             unsafe_allow_html=True
         )
