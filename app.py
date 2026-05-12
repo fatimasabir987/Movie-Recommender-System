@@ -10,12 +10,13 @@ try:
 except ImportError:
     _Groq = None
 
+# similarity.pkl is downloaded inside load_model() on first use
 
 # ─────────────────────────────────────────────
 # CONFIG
 # ─────────────────────────────────────────────
-GROQ_API_KEY = st.secrets.get("GROQ_API_KEY", "")
-TMDB_API_KEY = st.secrets.get("TMDB_API_KEY", "")
+GROQ_API_KEY = st.secrets.get("GROQ_API_KEY", "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")
+TMDB_API_KEY = st.secrets.get("TMDB_API_KEY", "8703996591426b79a5773084aa548336")
 
 APP_NAME    = "SceneSeeker"
 APP_TAGLINE = "Discover what your mood deserves"
@@ -113,6 +114,18 @@ st.markdown("""
         border-radius: 10px;
         padding: 0.8rem 1rem;
         border: 0.5px solid rgba(128,128,128,0.12);
+    }
+    /* Fullscreen movie player overlay */
+    .movie-player-overlay {
+        position: fixed;
+        top: 0; left: 0;
+        width: 100vw; height: 100vh;
+        background: rgba(0,0,0,0.97);
+        z-index: 9999;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
     }
     /* Sidebar width */
     section[data-testid="stSidebar"] {
@@ -339,6 +352,92 @@ def ask_groq(api_history, user_message):
         return f"Oops, something went wrong: {str(e)}"
 
 # ─────────────────────────────────────────────
+# TRENDING + MOOD + SURPRISE HELPERS
+# ─────────────────────────────────────────────
+@st.cache_data(show_spinner=False, ttl=3600)
+def fetch_trending():
+    """Fetch trending movies from TMDB this week."""
+    try:
+        data = requests.get(
+            f"https://api.themoviedb.org/3/trending/movie/week?api_key={TMDB_API_KEY}",
+            timeout=5).json()
+        results = []
+        for m in data.get("results", [])[:10]:
+            results.append({
+                "title":    m.get("title", ""),
+                "movie_id": m.get("id"),
+                "score":    round(m.get("vote_average", 0) * 10, 1),
+                "poster":   f"https://image.tmdb.org/t/p/w500{m['poster_path']}" if m.get("poster_path") else "",
+            })
+        return results
+    except:
+        return []
+
+def detect_mood_genre(text):
+    """Simple mood to genre mapping."""
+    text = text.lower()
+    mood_map = {
+        "sad":        ("Drama",   "😢"),
+        "cry":        ("Drama",   "😢"),
+        "happy":      ("Comedy",  "😄"),
+        "fun":        ("Comedy",  "😄"),
+        "funny":      ("Comedy",  "😄"),
+        "scared":     ("Horror",  "😱"),
+        "horror":     ("Horror",  "😱"),
+        "thrill":     ("Thriller","😰"),
+        "action":     ("Action",  "💥"),
+        "fight":      ("Action",  "💥"),
+        "love":       ("Romance", "❤️"),
+        "romance":    ("Romance", "❤️"),
+        "date":       ("Romance", "❤️"),
+        "adventure":  ("Adventure","🗺️"),
+        "family":     ("Family",  "👨‍👩‍👧"),
+        "kids":       ("Family",  "👨‍👩‍👧"),
+        "sci-fi":     ("Science Fiction","🚀"),
+        "space":      ("Science Fiction","🚀"),
+        "mystery":    ("Mystery", "🔍"),
+        "crime":      ("Crime",   "🔫"),
+    }
+    for keyword, (genre, emoji) in mood_map.items():
+        if keyword in text:
+            return genre, emoji
+    return None, None
+
+@st.cache_data(show_spinner=False, ttl=3600)
+def fetch_by_genre(genre_name):
+    """Fetch popular movies by genre from TMDB."""
+    genre_ids = {
+        "Action": 28, "Comedy": 35, "Drama": 18, "Horror": 27,
+        "Romance": 10749, "Thriller": 53, "Science Fiction": 878,
+        "Adventure": 12, "Family": 10751, "Mystery": 9648, "Crime": 80,
+    }
+    gid = genre_ids.get(genre_name)
+    if not gid:
+        return []
+    try:
+        data = requests.get(
+            f"https://api.themoviedb.org/3/discover/movie?api_key={TMDB_API_KEY}"
+            f"&with_genres={gid}&sort_by=popularity.desc&vote_count.gte=500",
+            timeout=5).json()
+        results = []
+        for m in data.get("results", [])[:10]:
+            results.append({
+                "title":    m.get("title", ""),
+                "movie_id": m.get("id"),
+                "score":    round(m.get("vote_average", 0) * 10, 1),
+                "poster":   f"https://image.tmdb.org/t/p/w500{m['poster_path']}" if m.get("poster_path") else "",
+            })
+        return results
+    except:
+        return []
+
+def get_surprise_movie(movies_df):
+    """Return a random highly-rated movie."""
+    import random
+    pool = movies_df.sample(frac=1).head(50)
+    return pool.iloc[random.randint(0, len(pool)-1)]
+
+# ─────────────────────────────────────────────
 # SHARED HEADER
 # ─────────────────────────────────────────────
 def app_header(subtitle=None):
@@ -389,6 +488,60 @@ def page_login():
         )
 
 # ─────────────────────────────────────────────
+# SHARED MOVIE GRID RENDERER
+# ─────────────────────────────────────────────
+def render_movie_grid(results, user_id, key_prefix=""):
+    """Render a grid of movie cards with Watch + Rate buttons."""
+    playing = st.session_state.get("playing_movie_id")
+    playing_title = st.session_state.get("playing_movie_title", "")
+
+    if playing:
+        player_html = (
+            "<div style='background:#000;border-radius:12px;padding:1rem;margin-bottom:1rem;'>"
+            "<div style='margin-bottom:0.75rem;'>"
+            f"<span style='color:white;font-size:1.1rem;font-weight:600;'>▶ Now Playing: {playing_title}</span>"
+            "</div>"
+            f"<iframe src='https://vidsrc.to/embed/movie/{playing}' "
+            "width='100%' height='520' frameborder='0' allowfullscreen "
+            "allow='autoplay; fullscreen; encrypted-media' "
+            "style='border-radius:8px;display:block;'></iframe>"
+            "</div>"
+        )
+        st.markdown(player_html, unsafe_allow_html=True)
+        if st.button("✕  Close Player", key=f"close_{key_prefix}"):
+            st.session_state.playing_movie_id    = None
+            st.session_state.playing_movie_title = None
+            st.rerun()
+        st.markdown("---")
+
+    chunk_size = 5
+    for row_start in range(0, len(results), chunk_size):
+        chunk = results[row_start:row_start + chunk_size]
+        cols  = st.columns(len(chunk))
+        for j, movie in enumerate(chunk):
+            with cols[j]:
+                poster = movie.get("poster") or fetch_poster(movie["movie_id"])
+                if poster:
+                    st.image(poster, use_container_width=True)
+                st.markdown(f"**{movie['title']}**")
+                st.caption(f"Match: {movie['score']}%")
+                if st.button("▶ Watch", key=f"play_{key_prefix}_{movie['movie_id']}", type="primary"):
+                    st.session_state.playing_movie_id    = movie["movie_id"]
+                    st.session_state.playing_movie_title = movie["title"]
+                    st.rerun()
+                if user_id:
+                    rating = st.select_slider(
+                        "Rate", key=f"rate_{key_prefix}_{movie['movie_id']}",
+                        options=[0.0,0.5,1.0,1.5,2.0,2.5,3.0,3.5,4.0,4.5,5.0],
+                        value=0.0
+                    )
+                    if st.button("✓ Watched", key=f"w_{key_prefix}_{movie['movie_id']}"):
+                        save_watch(user_id, movie["movie_id"], movie["title"],
+                                   rating if rating > 0 else None)
+                        st.success("Saved!")
+        st.markdown("")
+
+# ─────────────────────────────────────────────
 # PAGE — DISCOVER
 # ─────────────────────────────────────────────
 def page_discover():
@@ -396,23 +549,77 @@ def page_discover():
     user_id   = st.session_state.get("user_id")
     watched   = get_watched_titles(user_id) if user_id else []
 
+    # ── MOOD SEARCH BAR ──────────────────────
+    st.markdown("##### How are you feeling today?")
+    mood_cols = st.columns([5, 1, 1])
+    with mood_cols[0]:
+        mood_input = st.text_input(
+            "mood", label_visibility="collapsed",
+            placeholder="e.g. I feel sad, date night, want action..."
+        )
+    with mood_cols[1]:
+        mood_search = st.button("Search", use_container_width=True)
+    with mood_cols[2]:
+        surprise_btn = st.button("🎲 Surprise Me!", use_container_width=True)
+
+    # Mood search result
+    if mood_search and mood_input.strip():
+        genre, emoji = detect_mood_genre(mood_input)
+        if genre:
+            st.success(f"{emoji} Showing {genre} movies for your mood!")
+            mood_results = fetch_by_genre(genre)
+            if mood_results:
+                render_movie_grid(mood_results, user_id, key_prefix="mood")
+                st.markdown("---")
+        else:
+            st.info("Try words like: sad, happy, action, romance, horror, family, sci-fi...")
+
+    # Surprise Me
+    if surprise_btn:
+        surprise = get_surprise_movie(movies)
+        surprise_details = fetch_movie_details(surprise.movie_id)
+        surprise_poster  = fetch_poster(surprise.movie_id)
+        st.markdown("---")
+        st.markdown("### 🎲 Your Surprise Pick!")
+        s1, s2 = st.columns([1, 3])
+        with s1:
+            st.image(surprise_poster, width=130)
+        with s2:
+            st.subheader(surprise.title)
+            if surprise_details.get("overview"):
+                st.write(surprise_details["overview"][:200] + "...")
+            if st.button("▶ Watch This!", type="primary", key="surprise_watch"):
+                st.session_state.playing_movie_id    = surprise.movie_id
+                st.session_state.playing_movie_title = surprise.title
+                st.rerun()
+        st.markdown("---")
+
+    # ── GENRE FILTERS ──────────────────────
+    st.markdown("##### Browse by Genre")
+    genres = ["All", "Action", "Comedy", "Drama", "Horror", "Romance",
+              "Thriller", "Science Fiction", "Adventure", "Family", "Mystery", "Crime"]
+    selected_genre = st.selectbox("Genre", genres, label_visibility="collapsed")
+
+    if selected_genre != "All":
+        genre_results = fetch_by_genre(selected_genre)
+        if genre_results:
+            st.markdown(f"#### Popular {selected_genre} Movies")
+            render_movie_grid(genre_results, user_id, key_prefix=f"genre_{selected_genre}")
+            st.markdown("---")
+
+    # ── CONTENT-BASED RECOMMENDATIONS ──────
+    st.markdown("##### Or pick a movie you liked:")
     selected = st.selectbox(
-        "Pick a movie you enjoyed:",
+        "Pick a movie:",
         options=movies["title"].values,
         index=None,
-        placeholder="Type or scroll to find a movie..."
+        placeholder="Type or scroll to find a movie...",
+        label_visibility="collapsed"
     )
 
     if not selected:
-        st.markdown(
-            "<div style='opacity:0.35;text-align:center;padding:3rem 0;'>"
-            "← Select any movie you liked to get personalised picks"
-            "</div>",
-            unsafe_allow_html=True
-        )
         return
 
-    # Selected movie card
     row     = movies[movies["title"] == selected].iloc[0]
     details = fetch_movie_details(row.movie_id)
     poster  = fetch_poster(row.movie_id)
@@ -430,11 +637,17 @@ def page_discover():
             st.caption("  ·  ".join(meta))
         if details.get("overview"):
             st.write(details["overview"])
-        if details.get("trailer"):
-            st.link_button("▶ Watch Trailer", details["trailer"])
+        b1, b2 = st.columns(2)
+        with b1:
+            if st.button("▶ Watch Movie", type="primary", key="watch_selected"):
+                st.session_state.playing_movie_id    = row.movie_id
+                st.session_state.playing_movie_title = selected
+                st.rerun()
+        with b2:
+            if details.get("trailer"):
+                st.link_button("🎬 Trailer", details["trailer"])
 
     st.markdown("---")
-
     if watched:
         st.caption(f"Hiding {len(watched)} already-watched movies from results")
 
@@ -446,31 +659,9 @@ def page_discover():
 
     if ("last_results" in st.session_state and
             st.session_state.get("last_seed") == selected):
-
         results = st.session_state.last_results
         st.markdown(f"#### Because you liked *{selected}*")
-
-        for row_start in [0, 5]:
-            cols = st.columns(5)
-            for j, movie in enumerate(results[row_start:row_start + 5]):
-                with cols[j]:
-                    st.image(fetch_poster(movie["movie_id"]), use_container_width=True)
-                    st.markdown(f"**{movie['title']}**")
-                    st.caption(f"Match: {movie['score']}%")
-                    if user_id:
-                        rating = st.select_slider(
-                            "Rate", key=f"rate_{movie['movie_id']}",
-                            options=[0.0,0.5,1.0,1.5,2.0,2.5,3.0,3.5,4.0,4.5,5.0],
-                            value=0.0
-                        )
-                        if st.button("✓ Watched", key=f"w_{movie['movie_id']}"):
-                            save_watch(user_id, movie["movie_id"], movie["title"],
-                                       rating if rating > 0 else None)
-                            st.success("Saved!")
-                        d = fetch_movie_details(movie["movie_id"])
-                        if d.get("trailer"):
-                            st.link_button("▶", d["trailer"], key=f"t_{movie['movie_id']}")
-            st.markdown("")
+        render_movie_grid(results, user_id, key_prefix="rec")
 
 # ─────────────────────────────────────────────
 # PAGE — ASK AI
@@ -490,10 +681,10 @@ def page_ask_ai():
         st.markdown("<div style='opacity:0.6; font-size:0.9rem; margin-bottom:8px;'>Try asking:</div>",
                     unsafe_allow_html=True)
         chips = [
-            "Sad movies that make you cry",
-            "Best 90s action films",
-            "Something like Inception",
-            "Funny movie for tonight",
+            "Sad movies that make you cry 😢",
+            "Best 90s action films 💥",
+            "Something like Inception 🌀",
+            "Funny movie for tonight 😂",
         ]
         cols = st.columns(4)
         for i, chip in enumerate(chips):
@@ -586,6 +777,23 @@ def page_watchlist():
                 st.caption(f"{movie['score']}% match")
 
 # ─────────────────────────────────────────────
+# PAGE — TRENDING
+# ─────────────────────────────────────────────
+def page_trending():
+    user_id = st.session_state.get("user_id")
+    st.markdown("### This Week's Trending Movies")
+    st.caption("Updated weekly from TMDB")
+
+    with st.spinner("Fetching trending movies..."):
+        trending = fetch_trending()
+
+    if not trending:
+        st.info("Could not load trending movies. Please refresh.")
+        return
+
+    render_movie_grid(trending, user_id, key_prefix="trend")
+
+# ─────────────────────────────────────────────
 # MAIN
 # ─────────────────────────────────────────────
 def main():
@@ -619,7 +827,7 @@ def main():
     st.markdown("<hr style='margin:0 0 1rem 0;opacity:0.15;'>", unsafe_allow_html=True)
 
     # Tab navigation works on ALL devices
-    tab1, tab2, tab3 = st.tabs(["Discover", "Ask AI", "My Watchlist"])
+    tab1, tab2, tab3 = st.tabs(["🔍  Discover", "✦  Ask AI", "🎞  My Watchlist"])
     with tab1:
         page_discover()
     with tab2:
