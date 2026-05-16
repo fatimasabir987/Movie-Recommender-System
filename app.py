@@ -496,18 +496,27 @@ def render_movie_grid(results, user_id, key_prefix=""):
     playing_title = st.session_state.get("playing_movie_title", "")
 
     if playing:
-        player_html = (
-            "<div style='background:#000;border-radius:12px;padding:1rem;margin-bottom:1rem;'>"
-            "<div style='margin-bottom:0.75rem;'>"
+        st.markdown(
+            f"<div style='background:#111;border-radius:12px;padding:1rem;margin-bottom:0.5rem;'>"
             f"<span style='color:white;font-size:1.1rem;font-weight:600;'>▶ Now Playing: {playing_title}</span>"
-            "</div>"
-            f"<iframe src='https://vidsrc.to/embed/movie/{playing}' "
-            "width='100%' height='520' frameborder='0' allowfullscreen "
-            "allow='autoplay; fullscreen; encrypted-media' "
-            "style='border-radius:8px;display:block;'></iframe>"
-            "</div>"
+            f"</div>",
+            unsafe_allow_html=True
         )
-        st.markdown(player_html, unsafe_allow_html=True)
+        # Multiple player sources — if one fails user can try another
+        src_choice = st.radio(
+            "Player source:",
+            ["VidSrc", "SuperEmbed", "2Embed"],
+            horizontal=True,
+            key=f"src_{key_prefix}"
+        )
+        src_map = {
+            "VidSrc":     f"https://vidsrc.to/embed/movie/{playing}",
+            "SuperEmbed": f"https://multiembed.mov/?video_id={playing}&tmdb=1",
+            "2Embed":     f"https://www.2embed.cc/embed/{playing}",
+        }
+        iframe_src = src_map[src_choice]
+        st.components.v1.iframe(iframe_src, height=520, scrolling=False)
+        st.caption("⚠️ If movie is unavailable, try a different Player source above.")
         if st.button("✕  Close Player", key=f"close_{key_prefix}"):
             st.session_state.playing_movie_id    = None
             st.session_state.playing_movie_title = None
@@ -664,10 +673,48 @@ def page_discover():
         render_movie_grid(results, user_id, key_prefix="rec")
 
 # ─────────────────────────────────────────────
+# MOVIE EXTRACTOR FROM AI REPLY
+# ─────────────────────────────────────────────
+def extract_movies_from_reply(reply, movies_df):
+    """Find movie titles from AI reply that exist in our database."""
+    import re
+    found = []
+    all_titles = movies_df["title"].tolist()
+    # Look for bold titles (**Title**) or numbered lists
+    bold_titles = re.findall(r'\*\*([^*]+)\*\*', reply)
+    candidates = bold_titles if bold_titles else []
+    # Also check numbered list items
+    numbered = re.findall(r'\d+[.)]\s+([A-Za-z][^\n(]+?)(?:\s*[-(\[]|\n|$)', reply)
+    candidates += [t.strip() for t in numbered]
+
+    seen = set()
+    for candidate in candidates:
+        candidate = candidate.strip().rstrip(':.,')
+        if len(candidate) < 3:
+            continue
+        # Exact match first
+        if candidate in all_titles and candidate not in seen:
+            row = movies_df[movies_df["title"] == candidate].iloc[0]
+            found.append({"title": candidate, "movie_id": row.movie_id, "score": 0})
+            seen.add(candidate)
+        else:
+            # Fuzzy match — check if candidate is in title
+            for title in all_titles:
+                if candidate.lower() in title.lower() and title not in seen:
+                    row = movies_df[movies_df["title"] == title].iloc[0]
+                    found.append({"title": title, "movie_id": row.movie_id, "score": 0})
+                    seen.add(title)
+                    break
+        if len(found) >= 5:
+            break
+    return found
+
+# ─────────────────────────────────────────────
 # PAGE — ASK AI
 # ─────────────────────────────────────────────
 def page_ask_ai():
-    user_id = st.session_state.get("user_id")
+    user_id   = st.session_state.get("user_id")
+    movies, _ = load_model()
 
     if "chat_msgs" not in st.session_state or not st.session_state.chat_msgs:
         if user_id:
@@ -676,15 +723,15 @@ def page_ask_ai():
         else:
             st.session_state.chat_msgs = []
 
-    # Quick-start chips — only show when chat is empty
+    # Quick-start chips
     if not st.session_state.chat_msgs:
         st.markdown("<div style='opacity:0.6; font-size:0.9rem; margin-bottom:8px;'>Try asking:</div>",
                     unsafe_allow_html=True)
         chips = [
-            "Sad movies that make you cry 😢",
-            "Best 90s action films 💥",
-            "Something like Inception 🌀",
-            "Funny movie for tonight 😂",
+            "Sad movies that make you cry",
+            "Best 90s action films",
+            "Something like Inception",
+            "Funny movie for tonight",
         ]
         cols = st.columns(4)
         for i, chip in enumerate(chips):
@@ -694,13 +741,54 @@ def page_ask_ai():
                     st.rerun()
         st.markdown("---")
 
-    # Display conversation
+    # Display conversation history
     for msg in st.session_state.chat_msgs:
         role = "assistant" if msg["role"] in ("assistant", "model") else "user"
         with st.chat_message(role, avatar="🎬" if role == "assistant" else None):
             st.write(msg["content"])
+            # Show movie cards under assistant messages
+            if role == "assistant" and msg.get("movie_cards"):
+                ai_movies = msg["movie_cards"]
+                cols = st.columns(min(len(ai_movies), 5))
+                for j, movie in enumerate(ai_movies[:5]):
+                    with cols[j]:
+                        poster = fetch_poster(movie["movie_id"])
+                        if poster:
+                            st.image(poster, use_container_width=True)
+                        st.caption(f"**{movie['title']}**")
+                        if st.button("▶ Watch", key=f"ai_play_{msg.get('ts',j)}_{movie['movie_id']}_{j}", type="primary"):
+                            st.session_state.playing_movie_id    = movie["movie_id"]
+                            st.session_state.playing_movie_title = movie["title"]
+                            st.rerun()
 
-    # Handle pending chip click
+    # Show player if active
+    playing       = st.session_state.get("playing_movie_id")
+    playing_title = st.session_state.get("playing_movie_title", "")
+    if playing:
+        st.markdown(
+            f"<div style='background:#111;border-radius:12px;padding:1rem;margin:0.5rem 0;'>"
+            f"<span style='color:white;font-size:1rem;font-weight:600;'>▶ Now Playing: {playing_title}</span>"
+            f"</div>",
+            unsafe_allow_html=True
+        )
+        src_choice = st.radio(
+            "Player source:", ["VidSrc", "SuperEmbed", "2Embed"],
+            horizontal=True, key="ai_src"
+        )
+        src_map = {
+            "VidSrc":     f"https://vidsrc.to/embed/movie/{playing}",
+            "SuperEmbed": f"https://multiembed.mov/?video_id={playing}&tmdb=1",
+            "2Embed":     f"https://www.2embed.cc/embed/{playing}",
+        }
+        st.components.v1.iframe(src_map[src_choice], height=500, scrolling=False)
+        st.caption("⚠️ If unavailable, try a different Player source above.")
+        if st.button("✕ Close Player", key="ai_close_player"):
+            st.session_state.playing_movie_id    = None
+            st.session_state.playing_movie_title = None
+            st.rerun()
+        st.markdown("---")
+
+    # Handle pending chip
     pending = st.session_state.pop("pending_prompt", None)
     prompt  = st.chat_input("Describe your mood, a genre, actor, era...") or pending
 
@@ -721,7 +809,27 @@ def page_ask_ai():
                 reply = ask_groq(api_history, prompt)
             st.write(reply)
 
-        st.session_state.chat_msgs.append({"role": "assistant", "content": reply})
+            # Extract movies and show cards
+            ai_movies = extract_movies_from_reply(reply, movies)
+            if ai_movies:
+                st.markdown("**Watch these now:**")
+                cols = st.columns(min(len(ai_movies), 5))
+                ts   = int(datetime.now().timestamp())
+                for j, movie in enumerate(ai_movies[:5]):
+                    with cols[j]:
+                        poster = fetch_poster(movie["movie_id"])
+                        if poster:
+                            st.image(poster, use_container_width=True)
+                        st.caption(f"**{movie['title']}**")
+                        if st.button("▶ Watch", key=f"new_play_{ts}_{movie['movie_id']}_{j}", type="primary"):
+                            st.session_state.playing_movie_id    = movie["movie_id"]
+                            st.session_state.playing_movie_title = movie["title"]
+                            st.rerun()
+
+        msg_obj = {"role": "assistant", "content": reply, "ts": int(datetime.now().timestamp())}
+        if ai_movies:
+            msg_obj["movie_cards"] = ai_movies
+        st.session_state.chat_msgs.append(msg_obj)
         if user_id:
             save_chat(user_id, "assistant", reply)
 
