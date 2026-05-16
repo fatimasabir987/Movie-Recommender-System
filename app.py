@@ -817,7 +817,7 @@ def page_watchlist():
     df = pd.DataFrame(history, columns=["Title", "Rating", "Watched On"])
     df["Watched On"] = pd.to_datetime(df["Watched On"]).dt.strftime("%d %b %Y")
     df["Rating"]     = df["Rating"].apply(
-        lambda x: ("★" * int(x) + "☆" * (5 - int(x))) if x else "—"
+        lambda x: ("★" * int(x) + "☆" * (5 - int(x))) if (x is not None and x == x) else "—"
     )
     st.dataframe(df, use_container_width=True, hide_index=True)
 
