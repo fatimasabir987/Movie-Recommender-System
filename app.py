@@ -515,7 +515,7 @@ def render_movie_grid(results, user_id, key_prefix=""):
                 f"style='border-radius:8px;display:block;'></iframe>",
                 unsafe_allow_html=True
             )
-            st.caption("🎬 Playing official trailer — for full movie visit a streaming platform.")
+            st.caption("🎬 Official trailer")
         else:
             st.info("No trailer available for this movie.")
         if st.button("✕  Close", key=f"close_{key_prefix}"):
@@ -558,26 +558,6 @@ def page_discover():
     movies, _ = load_model()
     user_id   = st.session_state.get("user_id")
     watched   = get_watched_titles(user_id) if user_id else []
-
-    # ── SURPRISE ME ──────────────────────────
-    if st.button("🎲 Surprise Me!", use_container_width=False):
-        surprise = get_surprise_movie(movies)
-        surprise_details = fetch_movie_details(surprise.movie_id)
-        surprise_poster  = fetch_poster(surprise.movie_id)
-        st.markdown("---")
-        st.markdown("### 🎲 Your Surprise Pick!")
-        s1, s2 = st.columns([1, 3])
-        with s1:
-            st.image(surprise_poster, width=130)
-        with s2:
-            st.subheader(surprise.title)
-            if surprise_details.get("overview"):
-                st.write(surprise_details["overview"][:200] + "...")
-            if st.button("▶ Watch This!", type="primary", key="surprise_watch"):
-                st.session_state.playing_movie_id    = surprise.movie_id
-                st.session_state.playing_movie_title = surprise.title
-                st.rerun()
-        st.markdown("---")
 
     # ── GENRE FILTERS ──────────────────────
     st.markdown("##### Browse by Genre")
@@ -622,15 +602,10 @@ def page_discover():
             st.caption("  ·  ".join(meta))
         if details.get("overview"):
             st.write(details["overview"])
-        b1, b2 = st.columns(2)
-        with b1:
-            if st.button("▶ Watch Movie", type="primary", key="watch_selected"):
-                st.session_state.playing_movie_id    = row.movie_id
-                st.session_state.playing_movie_title = selected
-                st.rerun()
-        with b2:
-            if details.get("trailer"):
-                st.link_button("🎬 Trailer", details["trailer"])
+        if st.button("▶ Watch Movie", type="primary", key="watch_selected"):
+            st.session_state.playing_movie_id    = row.movie_id
+            st.session_state.playing_movie_title = selected
+            st.rerun()
 
     st.markdown("---")
     if watched:
