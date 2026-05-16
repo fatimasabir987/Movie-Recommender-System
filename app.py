@@ -15,8 +15,8 @@ except ImportError:
 # ─────────────────────────────────────────────
 # CONFIG
 # ─────────────────────────────────────────────
-GROQ_API_KEY = st.secrets.get("GROQ_API_KEY", "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")
-TMDB_API_KEY = st.secrets.get("TMDB_API_KEY", "8703996591426b79a5773084aa548336")
+GROQ_API_KEY = st.secrets.get("GROQ_API_KEY", "")
+TMDB_API_KEY = st.secrets.get("TMDB_API_KEY", "")
 
 APP_NAME    = "SceneSeeker"
 APP_TAGLINE = "Discover what your mood deserves"
@@ -377,26 +377,26 @@ def detect_mood_genre(text):
     """Simple mood to genre mapping."""
     text = text.lower()
     mood_map = {
-        "sad":        ("Drama",   "😢"),
-        "cry":        ("Drama",   "😢"),
-        "happy":      ("Comedy",  "😄"),
-        "fun":        ("Comedy",  "😄"),
-        "funny":      ("Comedy",  "😄"),
-        "scared":     ("Horror",  "😱"),
-        "horror":     ("Horror",  "😱"),
-        "thrill":     ("Thriller","😰"),
-        "action":     ("Action",  "💥"),
-        "fight":      ("Action",  "💥"),
-        "love":       ("Romance", "❤️"),
-        "romance":    ("Romance", "❤️"),
-        "date":       ("Romance", "❤️"),
-        "adventure":  ("Adventure","🗺️"),
-        "family":     ("Family",  "👨‍👩‍👧"),
-        "kids":       ("Family",  "👨‍👩‍👧"),
-        "sci-fi":     ("Science Fiction","🚀"),
-        "space":      ("Science Fiction","🚀"),
-        "mystery":    ("Mystery", "🔍"),
-        "crime":      ("Crime",   "🔫"),
+        "sad":        ("Drama"),
+        "cry":        ("Drama"),
+        "happy":      ("Comedy"),
+        "fun":        ("Comedy"),
+        "funny":      ("Comedy"),
+        "scared":     ("Horror"),
+        "horror":     ("Horror"),
+        "thrill":     ("Thriller"),
+        "action":     ("Action"),
+        "fight":      ("Action"),
+        "love":       ("Romance"),
+        "romance":    ("Romance"),
+        "date":       ("Romance"),
+        "adventure":  ("Adventure"),
+        "family":     ("Family"),
+        "kids":       ("Family"),
+        "sci-fi":     ("Science Fiction"),
+        "space":      ("Science Fiction"),
+        "mystery":    ("Mystery"),
+        "crime":      ("Crime"),
     }
     for keyword, (genre, emoji) in mood_map.items():
         if keyword in text:
@@ -889,7 +889,7 @@ def main():
     st.markdown("<hr style='margin:0 0 1rem 0;opacity:0.15;'>", unsafe_allow_html=True)
 
     # Tab navigation works on ALL devices
-    tab1, tab2, tab3 = st.tabs(["🔍  Discover", "✦  Ask AI", "🎞  My Watchlist"])
+    tab1, tab2, tab3 = st.tabs(["Discover", "Ask AI", "My Watchlist"])
     with tab1:
         page_discover()
     with tab2:
