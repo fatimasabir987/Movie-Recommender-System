@@ -496,28 +496,29 @@ def render_movie_grid(results, user_id, key_prefix=""):
     playing_title = st.session_state.get("playing_movie_title", "")
 
     if playing:
+        # Fetch trailer for the playing movie
+        details = fetch_movie_details(playing)
+        trailer_url = details.get("trailer", "")
         st.markdown(
-            f"<div style='background:#111;border-radius:12px;padding:1rem;margin-bottom:0.5rem;'>"
-            f"<span style='color:white;font-size:1.1rem;font-weight:600;'>▶ Now Playing: {playing_title}</span>"
+            f"<div style='background:#111;border-radius:12px;padding:1rem 1rem 0.5rem;margin-bottom:0.5rem;'>"
+            f"<span style='color:white;font-size:1.1rem;font-weight:600;'>▶ {playing_title}</span>"
             f"</div>",
             unsafe_allow_html=True
         )
-        # Multiple player sources — if one fails user can try another
-        src_choice = st.radio(
-            "Player source:",
-            ["VidSrc", "SuperEmbed", "2Embed"],
-            horizontal=True,
-            key=f"src_{key_prefix}"
-        )
-        src_map = {
-            "VidSrc":     f"https://vidsrc.to/embed/movie/{playing}",
-            "SuperEmbed": f"https://multiembed.mov/?video_id={playing}&tmdb=1",
-            "2Embed":     f"https://www.2embed.cc/embed/{playing}",
-        }
-        iframe_src = src_map[src_choice]
-        st.components.v1.iframe(iframe_src, height=520, scrolling=False)
-        st.caption("⚠️ If movie is unavailable, try a different Player source above.")
-        if st.button("✕  Close Player", key=f"close_{key_prefix}"):
+        if trailer_url:
+            # YouTube embed — always works
+            yt_id = trailer_url.split("v=")[-1]
+            yt_embed = f"https://www.youtube.com/embed/{yt_id}?autoplay=1&rel=0"
+            st.markdown(
+                f"<iframe width='100%' height='480' src='{yt_embed}' "
+                f"frameborder='0' allowfullscreen allow='autoplay; encrypted-media' "
+                f"style='border-radius:8px;display:block;'></iframe>",
+                unsafe_allow_html=True
+            )
+            st.caption("🎬 Playing official trailer — for full movie visit a streaming platform.")
+        else:
+            st.info("No trailer available for this movie.")
+        if st.button("✕  Close", key=f"close_{key_prefix}"):
             st.session_state.playing_movie_id    = None
             st.session_state.playing_movie_title = None
             st.rerun()
@@ -558,33 +559,8 @@ def page_discover():
     user_id   = st.session_state.get("user_id")
     watched   = get_watched_titles(user_id) if user_id else []
 
-    # ── MOOD SEARCH BAR ──────────────────────
-    st.markdown("##### How are you feeling today?")
-    mood_cols = st.columns([5, 1, 1])
-    with mood_cols[0]:
-        mood_input = st.text_input(
-            "mood", label_visibility="collapsed",
-            placeholder="e.g. I feel sad, date night, want action..."
-        )
-    with mood_cols[1]:
-        mood_search = st.button("Search", use_container_width=True)
-    with mood_cols[2]:
-        surprise_btn = st.button("🎲 Surprise Me!", use_container_width=True)
-
-    # Mood search result
-    if mood_search and mood_input.strip():
-        genre, emoji = detect_mood_genre(mood_input)
-        if genre:
-            st.success(f"{emoji} Showing {genre} movies for your mood!")
-            mood_results = fetch_by_genre(genre)
-            if mood_results:
-                render_movie_grid(mood_results, user_id, key_prefix="mood")
-                st.markdown("---")
-        else:
-            st.info("Try words like: sad, happy, action, romance, horror, family, sci-fi...")
-
-    # Surprise Me
-    if surprise_btn:
+    # ── SURPRISE ME ──────────────────────────
+    if st.button("🎲 Surprise Me!", use_container_width=False):
         surprise = get_surprise_movie(movies)
         surprise_details = fetch_movie_details(surprise.movie_id)
         surprise_poster  = fetch_poster(surprise.movie_id)
@@ -765,24 +741,27 @@ def page_ask_ai():
     playing       = st.session_state.get("playing_movie_id")
     playing_title = st.session_state.get("playing_movie_title", "")
     if playing:
+        details_p   = fetch_movie_details(playing)
+        trailer_url = details_p.get("trailer", "")
         st.markdown(
-            f"<div style='background:#111;border-radius:12px;padding:1rem;margin:0.5rem 0;'>"
-            f"<span style='color:white;font-size:1rem;font-weight:600;'>▶ Now Playing: {playing_title}</span>"
+            f"<div style='background:#111;border-radius:12px;padding:1rem 1rem 0.5rem;margin:0.5rem 0;'>"
+            f"<span style='color:white;font-size:1rem;font-weight:600;'>▶ {playing_title}</span>"
             f"</div>",
             unsafe_allow_html=True
         )
-        src_choice = st.radio(
-            "Player source:", ["VidSrc", "SuperEmbed", "2Embed"],
-            horizontal=True, key="ai_src"
-        )
-        src_map = {
-            "VidSrc":     f"https://vidsrc.to/embed/movie/{playing}",
-            "SuperEmbed": f"https://multiembed.mov/?video_id={playing}&tmdb=1",
-            "2Embed":     f"https://www.2embed.cc/embed/{playing}",
-        }
-        st.components.v1.iframe(src_map[src_choice], height=500, scrolling=False)
-        st.caption("⚠️ If unavailable, try a different Player source above.")
-        if st.button("✕ Close Player", key="ai_close_player"):
+        if trailer_url:
+            yt_id    = trailer_url.split("v=")[-1]
+            yt_embed = f"https://www.youtube.com/embed/{yt_id}?autoplay=1&rel=0"
+            st.markdown(
+                f"<iframe width='100%' height='460' src='{yt_embed}' "
+                f"frameborder='0' allowfullscreen allow='autoplay; encrypted-media' "
+                f"style='border-radius:8px;display:block;'></iframe>",
+                unsafe_allow_html=True
+            )
+            st.caption("🎬 Playing official trailer.")
+        else:
+            st.info("No trailer available for this movie.")
+        if st.button("✕ Close", key="ai_close_player"):
             st.session_state.playing_movie_id    = None
             st.session_state.playing_movie_title = None
             st.rerun()
